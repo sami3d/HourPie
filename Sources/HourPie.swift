@@ -180,23 +180,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func tick() {
         let remaining = secondsLeftInHour()
         let fraction = Double(remaining) / 3600.0
+        let effectiveColor = colourCoded
+            ? Self.codedColor(remainingSeconds: remaining) : pieColor
         statusItem.button?.image = Self.pieImage(
             fraction: fraction,
             clockwise: drainsClockwise,
-            color: colourCoded ? Self.codedColor(remainingSeconds: remaining) : pieColor,
+            color: effectiveColor,
             border: showsBorder
         )
         if showsTimeLabel, let button = statusItem.button {
             button.imagePosition = .imageLeft
             // Same face, size, and weight as the system menu bar clock,
             // with monospaced digits so the label doesn't jitter every second
+            var attributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.monospacedDigitSystemFont(
+                    ofSize: NSFont.menuBarFont(ofSize: 0).pointSize, weight: .regular
+                ),
+            ]
+            if colourCoded {
+                attributes[.foregroundColor] = effectiveColor
+            }
             button.attributedTitle = NSAttributedString(
                 string: String(format: " %d:%02d", remaining / 60, remaining % 60),
-                attributes: [
-                    .font: NSFont.monospacedDigitSystemFont(
-                        ofSize: NSFont.menuBarFont(ofSize: 0).pointSize, weight: .regular
-                    ),
-                ]
+                attributes: attributes
             )
         } else {
             statusItem.button?.imagePosition = .imageOnly

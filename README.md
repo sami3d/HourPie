@@ -28,7 +28,7 @@ Everything is in the menu: click the pie → **Settings**.
 |---|---|
 | **Direction** | Clockwise (default) or Anti-clockwise — which way the pie drains |
 | **Colour** | Red (default), White, Blue, Green, or **Custom…** which opens the macOS colour picker |
-| **Colour Coded Countdown** | Automatic colour by hour progress: green for the first 15 minutes, yellow for the next 15, red for the last 30. Picking a colour manually switches it back off |
+| **Colour Coded Countdown** | Automatic colour by hour progress: green for the first 15 minutes, yellow for the next 15, red for the last 30 — applied to both the pie and the Show Time label. Picking a colour manually switches it back off |
 | **Show Border** | Outline ring around the pie, on by default |
 | **Show Time** | Live `MM:SS` countdown next to the pie in the menu bar, off by default |
 
