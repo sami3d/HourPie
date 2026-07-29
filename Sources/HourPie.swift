@@ -167,12 +167,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
         if showsTimeLabel, let button = statusItem.button {
             button.imagePosition = .imageLeft
-            // Monospaced digits so the label doesn't jitter every second
+            // Same face, size, and weight as the system menu bar clock,
+            // with monospaced digits so the label doesn't jitter every second
             button.attributedTitle = NSAttributedString(
                 string: String(format: " %d:%02d", remaining / 60, remaining % 60),
                 attributes: [
                     .font: NSFont.monospacedDigitSystemFont(
-                        ofSize: NSFont.systemFontSize(for: .small), weight: .medium
+                        ofSize: NSFont.menuBarFont(ofSize: 0).pointSize, weight: .regular
                     ),
                 ]
             )
