@@ -26,6 +26,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let timeLabelItem = NSMenuItem(
         title: "Show Time", action: #selector(toggleTimeLabel), keyEquivalent: ""
     )
+    private let colourCodedItem = NSMenuItem(
+        title: "Colour Coded Countdown", action: #selector(toggleColourCoded), keyEquivalent: ""
+    )
     private var colorItems: [NSMenuItem] = []
     private let customColorItem = NSMenuItem(
         title: "Custom…", action: #selector(pickCustomColor), keyEquivalent: ""
@@ -38,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         static let border = "showsBorder"
         static let color = "pieColorRGB"
         static let timeLabel = "showsTimeLabel"
+        static let colourCoded = "colourCodedCountdown"
     }
 
     static let presetColors: [(name: String, color: NSColor)] = [
@@ -60,6 +64,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var showsTimeLabel: Bool {
         get { UserDefaults.standard.object(forKey: Keys.timeLabel) as? Bool ?? false }
         set { UserDefaults.standard.set(newValue, forKey: Keys.timeLabel); tick() }
+    }
+
+    private var colourCoded: Bool {
+        get { UserDefaults.standard.object(forKey: Keys.colourCoded) as? Bool ?? false }
+        set { UserDefaults.standard.set(newValue, forKey: Keys.colourCoded); tick() }
     }
 
     private var pieColor: NSColor {
@@ -114,8 +123,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let settingsMenu = NSMenu()
         timeLabelItem.target = self
+        colourCodedItem.target = self
         settingsMenu.addItem(directionItem)
         settingsMenu.addItem(colorItem)
+        settingsMenu.addItem(colourCodedItem)
         settingsMenu.addItem(borderItem)
         settingsMenu.addItem(timeLabelItem)
         let settingsItem = NSMenuItem(title: "Settings", action: nil, keyEquivalent: "")
@@ -156,13 +167,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return 3600 - ((parts.minute ?? 0) * 60 + (parts.second ?? 0))
     }
 
+    /// Colour-coded countdown: green while the hour is young (first 15 min),
+    /// yellow through the middle (15–30 min in), red for the final 30.
+    private static func codedColor(remainingSeconds: Int) -> NSColor {
+        switch remainingSeconds {
+        case 2701...: return .systemGreen
+        case 1801...: return .systemYellow
+        default: return .systemRed
+        }
+    }
+
     private func tick() {
         let remaining = secondsLeftInHour()
         let fraction = Double(remaining) / 3600.0
         statusItem.button?.image = Self.pieImage(
             fraction: fraction,
             clockwise: drainsClockwise,
-            color: pieColor,
+            color: colourCoded ? Self.codedColor(remainingSeconds: remaining) : pieColor,
             border: showsBorder
         )
         if showsTimeLabel, let button = statusItem.button {
@@ -280,6 +301,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         anticlockwiseItem.state = drainsClockwise ? .off : .on
         borderItem.state = showsBorder ? .on : .off
         timeLabelItem.state = showsTimeLabel ? .on : .off
+        colourCodedItem.state = colourCoded ? .on : .off
 
         let current = pieColor.usingColorSpace(.sRGB)
         var matchedPreset = false
@@ -304,8 +326,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func setAnticlockwise() { drainsClockwise = false }
     @objc private func toggleBorder() { showsBorder.toggle() }
     @objc private func toggleTimeLabel() { showsTimeLabel.toggle() }
+    @objc private func toggleColourCoded() { colourCoded.toggle() }
 
     @objc private func setPresetColor(_ sender: NSMenuItem) {
+        // Picking a colour by hand means the user wants that colour, not the
+        // automatic green/yellow/red.
+        colourCoded = false
         pieColor = Self.presetColors[sender.tag].color
     }
 
@@ -320,6 +346,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func customColorChanged(_ sender: NSColorPanel) {
+        colourCoded = false
         pieColor = sender.color
     }
 
