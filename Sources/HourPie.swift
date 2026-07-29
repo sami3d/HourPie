@@ -42,7 +42,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         static let color = "pieColorRGB"
         static let timeLabel = "showsTimeLabel"
         static let colourCoded = "colourCodedCountdown"
+        static let chime = "chimeSound"
     }
+
+    /// System sounds offered for the quarter-hour chime.
+    static let chimeSounds = ["Glass", "Ping", "Tink", "Hero", "Submarine"]
 
     static let presetColors: [(name: String, color: NSColor)] = [
         ("Red", .systemRed),
@@ -70,6 +74,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         get { UserDefaults.standard.object(forKey: Keys.colourCoded) as? Bool ?? false }
         set { UserDefaults.standard.set(newValue, forKey: Keys.colourCoded); tick() }
     }
+
+    /// Name of the chime sound, or nil when chimes are off.
+    private var chimeSound: String? {
+        get {
+            let name = UserDefaults.standard.string(forKey: Keys.chime)
+            return (name?.isEmpty ?? true) ? nil : name
+        }
+        set { UserDefaults.standard.set(newValue ?? "", forKey: Keys.chime) }
+    }
+
+    private var chimeItems: [NSMenuItem] = []
+    private let chimeOffItem = NSMenuItem(
+        title: "Off", action: #selector(setChimeOff), keyEquivalent: ""
+    )
+    private var previousRemaining: Int?
 
     private var pieColor: NSColor {
         get {
@@ -122,11 +141,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         colorItem.submenu = colorMenu
 
         let settingsMenu = NSMenu()
+        chimeOffItem.target = self
+        let chimeMenu = NSMenu()
+        chimeMenu.addItem(chimeOffItem)
+        chimeMenu.addItem(.separator())
+        for name in Self.chimeSounds {
+            let item = NSMenuItem(
+                title: name, action: #selector(setChime(_:)), keyEquivalent: ""
+            )
+            item.target = self
+            chimeMenu.addItem(item)
+            chimeItems.append(item)
+        }
+        let chimeItem = NSMenuItem(title: "Chime", action: nil, keyEquivalent: "")
+        chimeItem.submenu = chimeMenu
+
         timeLabelItem.target = self
         colourCodedItem.target = self
         settingsMenu.addItem(directionItem)
         settingsMenu.addItem(colorItem)
         settingsMenu.addItem(colourCodedItem)
+        settingsMenu.addItem(chimeItem)
         settingsMenu.addItem(borderItem)
         settingsMenu.addItem(timeLabelItem)
         let settingsItem = NSMenuItem(title: "Settings", action: nil, keyEquivalent: "")
@@ -177,8 +212,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    /// Chime when a quarter-hour boundary was crossed since the last tick.
+    /// Crossing detection (rather than an exact :00 second match) means a
+    /// delayed timer beat can't skip a chime. The top of the hour rings twice.
+    private func checkChime(remaining: Int) {
+        defer { previousRemaining = remaining }
+        guard let sound = chimeSound,
+              let previous = previousRemaining, previous != remaining else { return }
+
+        if remaining > previous {
+            // Wrapped: a new hour started. Only ring for a genuine 1-tick
+            // wrap — a large jump means the Mac was asleep over the boundary.
+            if previous <= 120 && remaining >= 3480 {
+                playChime(sound, times: 2)
+            }
+            return
+        }
+        // Skip chimes for marks passed while asleep
+        guard previous - remaining <= 120 else { return }
+        let elapsed = 3600 - remaining
+        let previousElapsed = 3600 - previous
+        for mark in [900, 1800, 2700] where previousElapsed < mark && mark <= elapsed {
+            playChime(sound, times: 1)
+            return
+        }
+    }
+
+    private func playChime(_ name: String, times: Int) {
+        NSSound(named: name)?.play()
+        if times > 1 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                NSSound(named: name)?.play()
+            }
+        }
+    }
+
     private func tick() {
         let remaining = secondsLeftInHour()
+        checkChime(remaining: remaining)
         let fraction = Double(remaining) / 3600.0
         let effectiveColor = colourCoded
             ? Self.codedColor(remainingSeconds: remaining) : pieColor
@@ -308,6 +379,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         borderItem.state = showsBorder ? .on : .off
         timeLabelItem.state = showsTimeLabel ? .on : .off
         colourCodedItem.state = colourCoded ? .on : .off
+        chimeOffItem.state = chimeSound == nil ? .on : .off
+        for item in chimeItems {
+            item.state = item.title == chimeSound ? .on : .off
+        }
 
         let current = pieColor.usingColorSpace(.sRGB)
         var matchedPreset = false
@@ -333,6 +408,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func toggleBorder() { showsBorder.toggle() }
     @objc private func toggleTimeLabel() { showsTimeLabel.toggle() }
     @objc private func toggleColourCoded() { colourCoded.toggle() }
+
+    @objc private func setChimeOff() { chimeSound = nil }
+
+    @objc private func setChime(_ sender: NSMenuItem) {
+        chimeSound = sender.title
+        // Preview the sound so the user hears what they picked
+        NSSound(named: sender.title)?.play()
+    }
 
     @objc private func setPresetColor(_ sender: NSMenuItem) {
         // Picking a colour by hand means the user wants that colour, not the
