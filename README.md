@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="Assets/icon_1024.png" width="160" alt="HourPie icon">
+</p>
+
 # HourPie 🥧
 
 A tiny macOS menu bar clock that shows the current hour draining away as a pie — like a [Time Timer](https://www.timetimer.com/), but for the clock hour.
